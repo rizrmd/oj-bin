@@ -29,7 +29,7 @@ jobs:
             draft=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
             test "$draft" = true || { echo 'Refusing to overwrite a published release'; exit 1; }
           else
-            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft --title "OJ $OJ_VERSION" --notes "Native OJ binaries built from the locked crates.io source. Linux glibc 2.35+ and macOS 13+, x86_64 and arm64. Checksums and installers are attached. Upstream: https://github.com/lovablelabs/oj"
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft --title "OJ $OJ_VERSION" --notes "Native OJ binaries built from the locked crates.io source. Linux glibc 2.35+, x86_64 and arm64. Checksums and installers are attached. Upstream: https://github.com/lovablelabs/oj"
           fi
   build:
     needs: prepare
@@ -44,17 +44,10 @@ jobs:
           - runner: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
             bun: linux-aarch64
-          - runner: macos-15-intel
-            target: x86_64-apple-darwin
-            bun: darwin-x64
-          - runner: macos-15
-            target: aarch64-apple-darwin
-            bun: darwin-aarch64
     runs-on: ${{ matrix.runner }}
     env:
       RELEASE_TARGET: ${{ matrix.target }}
       BUN_TARGET: ${{ matrix.bun }}
-      MACOSX_DEPLOYMENT_TARGET: '13.0'
     steps:
       - name: Checkout release scripts using Git
         shell: bash
@@ -65,7 +58,6 @@ jobs:
           git fetch --depth 1 origin "$GITHUB_SHA"
           git checkout --detach FETCH_HEAD
       - name: Install Linux build prerequisites
-        if: runner.os == 'Linux'
         shell: bash
         run: |
           sudo apt-get update
@@ -119,7 +111,7 @@ jobs:
           mkdir assets
           gh release download "v$OJ_VERSION" --repo "$GITHUB_REPOSITORY" --dir assets
           cd assets
-          test "$(find . -name '*.tar.gz' | wc -l)" -eq 4
+          test "$(find . -name '*.tar.gz' | wc -l)" -eq 2
           cat ./*.sha256 > SHA256SUMS
           sha256sum -c SHA256SUMS
           curl -fsSL "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/install.sh" -o install.sh

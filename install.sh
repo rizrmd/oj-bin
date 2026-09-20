@@ -13,8 +13,7 @@ version=${version#v}
 case "$version" in ''|*[!0-9.]*) echo 'OJ_VERSION must be a numeric release version, e.g. 0.2.2.' >&2; exit 1 ;; esac
 case "$(uname -s)" in
   Linux) platform=unknown-linux-gnu ;;
-  Darwin) platform=apple-darwin ;;
-  *) echo 'This installer supports Linux (glibc) and macOS. See GitHub Releases for available binaries.' >&2; exit 1 ;;
+  *) echo 'This installer supports Linux (glibc). See GitHub Releases for available binaries.' >&2; exit 1 ;;
 esac
 case "$(uname -m)" in
   x86_64|amd64) arch=x86_64 ;;

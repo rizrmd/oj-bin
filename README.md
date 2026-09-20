@@ -10,7 +10,7 @@ releases without changing their source. OJ is experimental.
 curl -fsSL https://raw.githubusercontent.com/rizrmd/oj-bin/main/install.sh | sh
 ```
 
-The installer detects Linux/macOS and x86_64/arm64, downloads the matching release,
+The installer detects Linux and x86_64/arm64, downloads the matching release,
 verifies SHA-256, checks `oj --version`, and installs into `~/.local/bin`.
 No Rust compiler, Node.js, or Bun is needed to install or execute the binary.
 Application dependencies must still be installed separately.
@@ -36,8 +36,6 @@ oj build
 | --- | --- | --- |
 | Linux x86_64 | `x86_64-unknown-linux-gnu` | glibc 2.35+, zlib |
 | Linux arm64 | `aarch64-unknown-linux-gnu` | glibc 2.35+, zlib |
-| macOS Intel | `x86_64-apple-darwin` | macOS 13+ |
-| macOS Apple Silicon | `aarch64-apple-darwin` | macOS 13+ |
 
 Alpine/musl and Windows binaries are not currently published. Each archive
 contains `oj`, its upstream license, notices, and build information. Matching
@@ -46,7 +44,7 @@ Do not fully strip the binary: the embedded runtime needs its exported symbols.
 
 ## Publishing
 
-Run the **Release** workflow with an upstream crate version. Four native builds
+Run the **Release** workflow with an upstream crate version. Two native builds
 compile with `cargo install oj --locked`, run a React/Tailwind smoke build with
 `node` blocked, and upload archives into a draft release. The final job verifies
 all checksums and publishes the release only after every platform succeeds.
