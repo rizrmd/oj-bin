@@ -1,0 +1,127 @@
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Upstream OJ crate version
+        required: true
+        default: '0.2.2'
+permissions:
+  contents: write
+concurrency:
+  group: oj-release-${{ inputs.version }}
+  cancel-in-progress: false
+env:
+  OJ_VERSION: ${{ inputs.version }}
+  GH_TOKEN: ${{ github.token }}
+  RUSTUP_TOOLCHAIN: '1.97.1'
+jobs:
+  prepare:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Create draft release
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$OJ_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          tag="v$OJ_VERSION"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            draft=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
+            test "$draft" = true || { echo 'Refusing to overwrite a published release'; exit 1; }
+          else
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft --title "OJ $OJ_VERSION" --notes "Native OJ binaries built from the locked crates.io source. Linux glibc 2.35+ and macOS 13+, x86_64 and arm64. Checksums and installers are attached. Upstream: https://github.com/lovablelabs/oj"
+          fi
+  build:
+    needs: prepare
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bun: linux-x64
+          - runner: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            bun: linux-aarch64
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            bun: darwin-x64
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            bun: darwin-aarch64
+    runs-on: ${{ matrix.runner }}
+    env:
+      RELEASE_TARGET: ${{ matrix.target }}
+      BUN_TARGET: ${{ matrix.bun }}
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+    steps:
+      - name: Checkout release scripts using Git
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git fetch --depth 1 origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+      - name: Install Linux build prerequisites
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libclang-dev cmake pkg-config libssl-dev zlib1g-dev
+      - name: Install Rust toolchain
+        shell: bash
+        run: rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
+      - name: Compile upstream locked crate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo install oj --version "$OJ_VERSION" --locked --jobs 2 --root "$RUNNER_TEMP/oj"
+          test "$("$RUNNER_TEMP/oj/bin/oj" --version)" = "oj $OJ_VERSION"
+      - name: Collect licenses and notices
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/collect-licenses.py
+          mkdir -p licenses/v8 licenses/deno
+          curl -fsSL --retry 3 https://raw.githubusercontent.com/denoland/rusty_v8/main/LICENSE -o licenses/v8/LICENSE-rusty-v8
+          curl -fsSL --retry 3 https://raw.githubusercontent.com/v8/v8/main/LICENSE -o licenses/v8/LICENSE-v8
+          curl -fsSL --retry 3 https://raw.githubusercontent.com/denoland/deno/main/LICENSE.md -o licenses/deno/LICENSE.md
+      - name: Smoke build without Node.js
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 "https://github.com/oven-sh/bun/releases/download/bun-v1.3.14/bun-$BUN_TARGET.zip" -o "$RUNNER_TEMP/bun.zip"
+          unzip -q "$RUNNER_TEMP/bun.zip" -d "$RUNNER_TEMP/bun"
+          "$RUNNER_TEMP/bun/bun-$BUN_TARGET/bun" install --cwd smoke --frozen-lockfile
+          mkdir -p "$RUNNER_TEMP/no-node"
+          printf '#!/bin/sh\necho "Unexpected Node invocation" >&2\nexit 99\n' > "$RUNNER_TEMP/no-node/node"
+          chmod +x "$RUNNER_TEMP/no-node/node"
+          export PATH="$RUNNER_TEMP/no-node:$PATH"
+          "$RUNNER_TEMP/oj/bin/oj" build smoke
+          test -s smoke/dist/index.html
+          grep -q 'text-red-500' smoke/dist/assets/*.css
+      - name: Package and upload draft assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          sh scripts/package.sh "$OJ_VERSION" "$RELEASE_TARGET" "$RUNNER_TEMP/oj/bin/oj" dist
+          gh release upload "v$OJ_VERSION" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+  publish:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Verify all assets and publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir assets
+          gh release download "v$OJ_VERSION" --repo "$GITHUB_REPOSITORY" --dir assets
+          cd assets
+          test "$(find . -name '*.tar.gz' | wc -l)" -eq 4
+          cat ./*.sha256 > SHA256SUMS
+          sha256sum -c SHA256SUMS
+          curl -fsSL "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/install.sh" -o install.sh
+          gh release upload "v$OJ_VERSION" SHA256SUMS install.sh --repo "$GITHUB_REPOSITORY" --clobber
+          gh release edit "v$OJ_VERSION" --repo "$GITHUB_REPOSITORY" --draft=false --latest

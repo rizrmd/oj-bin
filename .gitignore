@@ -1,0 +1,6 @@
+/smoke/node_modules/
+/smoke/dist/
+/smoke/.oj-cache/
+/dist/
+/.target/
+/licenses/
