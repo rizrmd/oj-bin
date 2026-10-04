@@ -10,7 +10,7 @@ if [ -z "$version" ]; then
   version=$(curl --proto '=https' --tlsv1.2 -fsSL --retry 3 "https://api.github.com/repos/$repo/releases/latest" | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p' | head -n 1)
 fi
 version=${version#v}
-case "$version" in ''|*[!0-9.]*) echo 'OJ_VERSION must be a numeric release version, e.g. 0.2.2.' >&2; exit 1 ;; esac
+case "$version" in ''|*[!0-9.]*) echo 'OJ_VERSION must be a numeric release version, e.g. 0.2.16.' >&2; exit 1 ;; esac
 case "$(uname -s)" in
   Linux) platform=unknown-linux-gnu ;;
   *) echo 'This installer supports Linux (glibc). See GitHub Releases for available binaries.' >&2; exit 1 ;;

@@ -19,7 +19,7 @@ Pin a version or choose another writable directory:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/rizrmd/oj-bin/main/install.sh -o /tmp/install-oj.sh
-OJ_VERSION=0.2.2 OJ_INSTALL_DIR="$HOME/.local/bin" sh /tmp/install-oj.sh
+OJ_VERSION=0.2.16 OJ_INSTALL_DIR="$HOME/.local/bin" sh /tmp/install-oj.sh
 ```
 
 Ensure the installation directory is on `PATH`, then run from your app:

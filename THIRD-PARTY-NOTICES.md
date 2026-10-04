@@ -8,11 +8,11 @@ OJ statically links third-party Rust libraries and an embedded V8/Deno runtime.
 Their source, license declarations, and notices are available in the exact
 crate versions pinned by the upstream release's `Cargo.lock`:
 
-- OJ source distribution: https://crates.io/crates/oj/0.2.2
+- OJ source distribution: https://crates.io/crates/oj/0.2.16
 - Upstream: https://github.com/lovablelabs/oj
 - Rusty V8 and V8: https://github.com/denoland/rusty_v8 (MIT and BSD-style licenses)
 - Deno: https://github.com/denoland/deno (MIT)
 - Rolldown: https://github.com/rolldown/rolldown (MIT)
 - Oxc: https://github.com/oxc-project/oxc (MIT)
 
-Builds use `cargo install oj --version 0.2.2 --locked` without source changes.
+Builds use `cargo install oj --version 0.2.16 --locked` without source changes.
