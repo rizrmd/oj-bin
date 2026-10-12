@@ -3,13 +3,13 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Upstream OJ crate version
+        description: Upstream OJ tag version
         required: true
-        default: '0.2.16'
+        default: '0.2.22'
 permissions:
   contents: write
 concurrency:
-  group: oj-release-${{ inputs.version }}
+  group: oj-release
   cancel-in-progress: false
 env:
   OJ_VERSION: ${{ inputs.version }}
@@ -29,7 +29,7 @@ jobs:
             draft=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
             test "$draft" = true || { echo 'Refusing to overwrite a published release'; exit 1; }
           else
-            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft --title "OJ $OJ_VERSION" --notes "Native OJ binaries built from the locked crates.io source. Linux glibc 2.35+, x86_64 and arm64. Checksums and installers are attached. Upstream: https://github.com/lovablelabs/oj"
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft --title "OJ $OJ_VERSION" --notes "Native OJ binaries built from upstream tag v$OJ_VERSION with its Cargo.lock. Linux glibc 2.35+, x86_64 and arm64. Checksums and installers are attached. Upstream: https://github.com/lovablelabs/oj/releases/tag/v$OJ_VERSION"
           fi
   build:
     needs: prepare
@@ -65,11 +65,11 @@ jobs:
       - name: Install Rust toolchain
         shell: bash
         run: rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
-      - name: Compile upstream locked crate
+      - name: Compile upstream locked tag
         shell: bash
         run: |
           set -euo pipefail
-          cargo install oj --version "$OJ_VERSION" --locked --jobs 2 --root "$RUNNER_TEMP/oj"
+          cargo install --git https://github.com/lovablelabs/oj --tag "v$OJ_VERSION" oj --locked --jobs 2 --root "$RUNNER_TEMP/oj"
           test "$("$RUNNER_TEMP/oj/bin/oj" --version)" = "oj $OJ_VERSION"
       - name: Collect licenses and notices
         shell: bash
@@ -116,4 +116,22 @@ jobs:
           sha256sum -c SHA256SUMS
           curl -fsSL "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/install.sh" -o install.sh
           gh release upload "v$OJ_VERSION" SHA256SUMS install.sh --repo "$GITHUB_REPOSITORY" --clobber
+          # The literal latest tag aliases the same packaging commit as v$OJ_VERSION.
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/latest" \
+            -f sha="$GITHUB_SHA" -F force=true || \
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref=refs/tags/latest -f sha="$GITHUB_SHA"
+          if ! gh release view latest --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create latest --repo "$GITHUB_REPOSITORY" --draft --title "OJ $OJ_VERSION (latest)" --notes "Alias of v$OJ_VERSION."
+          fi
+          # Remove older-version assets so the alias contains only this version.
+          gh release view latest --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' |
+            while IFS= read -r asset; do
+              gh release delete-asset latest "$asset" --repo "$GITHUB_REPOSITORY" --yes
+            done
+          gh release upload latest ./* --repo "$GITHUB_REPOSITORY" --clobber
+          gh release edit latest --repo "$GITHUB_REPOSITORY" --draft=false --latest=false \
+            --title "OJ $OJ_VERSION (latest)" \
+            --notes "Alias of https://github.com/$GITHUB_REPOSITORY/releases/tag/v$OJ_VERSION. Built from https://github.com/lovablelabs/oj/releases/tag/v$OJ_VERSION; identical binaries and checksums."
+          # Keep the versioned release as the API latest for the numeric installer.
           gh release edit "v$OJ_VERSION" --repo "$GITHUB_REPOSITORY" --draft=false --latest

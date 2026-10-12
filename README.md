@@ -19,7 +19,7 @@ Pin a version or choose another writable directory:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/rizrmd/oj-bin/main/install.sh -o /tmp/install-oj.sh
-OJ_VERSION=0.2.16 OJ_INSTALL_DIR="$HOME/.local/bin" sh /tmp/install-oj.sh
+OJ_VERSION=0.2.22 OJ_INSTALL_DIR="$HOME/.local/bin" sh /tmp/install-oj.sh
 ```
 
 Ensure the installation directory is on `PATH`, then run from your app:
@@ -44,9 +44,15 @@ Do not fully strip the binary: the embedded runtime needs its exported symbols.
 
 ## Publishing
 
-Run the **Release** workflow with an upstream crate version. Two native builds
-compile with `cargo install oj --locked`, run a React/Tailwind smoke build with
+Run the **Release** workflow with an upstream tag version. Two native builds
+compile with `cargo install --git https://github.com/lovablelabs/oj --tag v<VERSION> oj --locked`, run a React/Tailwind smoke build with
 `node` blocked, and upload archives into a draft release. The final job verifies
 all checksums and publishes the release only after every platform succeeds.
 The build uses shell tools, Rust, and Bun for installing the smoke fixture's
 dependencies; it does not run Node.js.
+
+The literal [`latest` release](https://github.com/rizrmd/oj-bin/releases/tag/latest)
+mirrors the successfully published version, with identical archives and checksums.
+Its Git tag points to the same packaging commit as the versioned release; release
+notes link to the exact upstream tag. The versioned release remains the GitHub API
+latest so the installer can resolve a numeric version.
