@@ -5,7 +5,7 @@ on:
       version:
         description: Upstream OJ tag version
         required: true
-        default: '0.2.22'
+        default: '0.2.51'
 permissions:
   contents: write
 concurrency:
